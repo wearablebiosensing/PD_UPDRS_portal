@@ -84,8 +84,15 @@ def activity_dropdown(task_id):
 # Chained callback filer by patient ID and Device ID.
 @callback(
     Output('column_id', 'options'),
-    Input('filepath', 'value'))
+    # Input('dates_id', 'value'),
+    # Input('task_id','value'),
+    # Input('activity_id','value'),
+    Input('filepath', 'value'),
+    
+    )
 def column_id_dropdown(filepath):
+    print("column_id_dropdown(): system_file_path accepted by program: ",filepath)
+
     df = pd.read_csv(filepath)
     print("df columns:", df.columns.values.tolist() )    
     return df.columns.values.tolist()
@@ -221,7 +228,7 @@ def update_graph2(pid, dates_id, task_id,activity_id,width,heigth,prominance,fil
     # print("file_path: ",file_path)
     df_lg = pd.read_csv(system_file_path)
     # Query by Activity.
-    df_lg_activity = df_lg[df_lg["activity"]==activity_id] #df_lg#df_lg[df_lg["activity"]==activity_id]
+    df_lg_activity = df_lg#df_lg[df_lg["activity"]==activity_id] #df_lg#df_lg[df_lg["activity"]==activity_id]
     exercise_name = activity_codes("lg",activity_id)
     df_dates_pid_p = df_dates_pid[df_dates_pid["ParticipantList"]==pid]
     normalized_arr = df_lg_activity[column_id][25:500]#preprocessing.normalize([df_lg_activity["index"][25:500]])
