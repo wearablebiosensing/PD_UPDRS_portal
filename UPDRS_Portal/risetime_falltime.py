@@ -39,11 +39,11 @@ def peaks_and_valleys(df):
     df["peaks_index"] = peak_inctances
     df["valleys_index"] = valley_instances
 
-    return df, peaks_idxs, valley_idxs,peak_points
+    # return df, peaks_idxs, valley_idxs,peak_points
 
 ################################ -------------------- RISE TIME ----------------- ################################################################################################
 # Params - Peak indexes and valley indexes returned by  peaks_and_valleys().
-def rise_time(peaks_idxs,valley_idxs):
+# def rise_time(peaks_idxs,valley_idxs):
     ##### Params needed (1) valley indexes, (2) peak indexes
     # Psudo Code
     rise_time_arr = [] # Len of this array ahould be the same as number of peaks. 
@@ -51,22 +51,23 @@ def rise_time(peaks_idxs,valley_idxs):
     valle_done = 0 # for breaking if one iter of valleys is done.
     for v_idx, valley_idx in enumerate(valley_idxs):
         for idx, peaks_idx in enumerate(peaks_idxs):
-            #print("peak to valley peaks_idxs[idx]  < valley_idxs[v_idx]:", peaks_idxs[idx]  , valley_idxs[v_idx])
+            print("peak to valley peaks_idxs[idx]  < valley_idxs[v_idx]:", peaks_idxs[idx]  , valley_idxs[v_idx])
             #print("valley to peak rise time :", valley_idxs[v_idx], peaks_idxs[idx], peaks_idxs[len(peaks_idxs)-1])  
             if valley_idxs[v_idx] < peaks_idxs[idx]: # RISE TIME
+               # print("valley idx, peak idx: ",valley_idxs[v_idx],peaks_idxs[idx])
                 rise_time = df["time"][peaks_idxs[idx]]/1000000000 -  df["time"][valley_idxs[v_idx]]/1000000000
                 rise_time_arr.append(rise_time)
                 found_valley_to_peak = 1
             # if we parserd through all the peaks then code is done running.
             elif peaks_idxs[idx] == peaks_idxs[len(peaks_idxs)-1]: # last value 
                 valle_done = 0 # Finished finding valleis - peaks 
-         
             if found_valley_to_peak == 1:
                 idx =idx+1 
         if valle_done == 0:
             break
-    return rise_time_arr
-    #print("rise_time_arr: ",rise_time_arr,len(rise_time_arr))
+df = pd.read_csv("/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/Participant1/2021-06-24/rg_20210624-170825.csv")
+peaks_and_valleys(df)
+#print("rise_time_arr: ",rise_time_arr,len(rise_time_arr))
     
 ################################ -------------------- FALL TIME -----------------################################################################################################
     # Problem because there are two valles in one segment.!!!!!!!
@@ -90,6 +91,7 @@ def rise_time(peaks_idxs,valley_idxs):
     #     if ptovall_done == 1:
     #         break
     # print("fall_time_arr: ",fall_time_arr,len(fall_time_arr))
+''' 
 dset_path = "/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD"
 # file_id = []
 for i in range(1):
@@ -136,29 +138,4 @@ for i in range(1):
         all_sessions.append(session1)
     all_sessions_df = pd.concat(all_sessions)
 all_sessions_df.to_csv("/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/Participant1/peak_amplitudes.csv",index=0)
-
-#all_sessions_df.to_csv("/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/Participant1/rise_times.csv",index=0)
-        # # all_data.append([rise_time_arr,med_status,date_list])
-        # all_rise_times.append(all_rise_times)
-        # all_med_status.append(med_status)
-        # all_dates.append(date_list)
-    # print(len(all_rise_times),len(all_med_status),len(all_dates))
-    #print("med_status: ", med_status)
-    # df_rise_times = pd.DataFrame(all_data, columns = ['rise_time_arr', 'med_status', 'date_list'])
-    # df_rise_times.to_csv("/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/Participant1/rise_times.csv",index=0)
-    # print(df_rise_times)
-
-
-
-
-# df = pd.read_csv("/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/Participant1/2021-06-24/rg_20210624-170825.csv")
-# df =df[df["activity"]==1]
-# print("dftime1: ",df["time"][1])
-# df_peaks_valleys, peak_indexs, valley_idxs = peaks_and_valleys(df)
-# rise_time_arr  = rise_time(peak_indexs,valley_idxs)
-# print("rise_time_arr: ",rise_time_arr)
-
-
-
-
-
+'''

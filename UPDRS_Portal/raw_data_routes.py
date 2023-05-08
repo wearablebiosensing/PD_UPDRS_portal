@@ -12,6 +12,13 @@ import gspread as gs
 from scipy.signal import find_peaks
 import plotly.figure_factory as ff
 import calendar
+from scipy.signal import chirp, find_peaks, peak_widths
+import scipy.fftpack                 # discrete Fourier transforms
+from scipy.signal import find_peaks, peak_prominences
+from scipy.signal import butter, lfilter
+from scipy import signal
+
+
 
 file_path_root = "/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/PD/"
 df_dates_file_path = "/Users/shehjarsadhu/Desktop/UniversityOfRhodeIsland/Graduate/WBL/Project_IOTEX/iotex-glove/pd_dates_list.csv"
@@ -84,18 +91,27 @@ def activity_dropdown(task_id):
 # Chained callback filer by patient ID and Device ID.
 @callback(
     Output('column_id', 'options'),
-    # Input('dates_id', 'value'),
-    # Input('task_id','value'),
-    # Input('activity_id','value'),
     Input('filepath', 'value'),
-    
+    Input('participant_id', 'value'),
+    Input('dates_id', 'value'),
+    Input('task_id','value'),
     )
-def column_id_dropdown(filepath):
+def column_id_dropdown(filepath,participant_id,dates_id,task_id):
+    print("column_id_dropdown(): participant_id,dates_id,task_id,filepath: ",participant_id,dates_id,task_id,filepath)
     print("column_id_dropdown(): system_file_path accepted by program: ",filepath)
+    system_file_path = ""
+    if filepath != None and dates_id ==None:
+        activity_id = 1
+        print("update_graph2(): filepath entered by user: ",filepath)
 
-    df = pd.read_csv(filepath)
-    print("df columns:", df.columns.values.tolist() )    
-    return df.columns.values.tolist()
+        system_file_path = filepath
+    else:
+
+        system_file_path = file_path_root + str(participant_id) + "/" + str(dates_id) + "/"+ str(task_id)
+    system_file_path_df = pd.read_csv(system_file_path)
+    print("column_id_dropdown(): system_file_path: ",system_file_path)
+    print("df columns:", system_file_path_df.columns.values.tolist())    
+    return system_file_path_df.columns.values.tolist()
 
 # Displays graphs.
 @callback(
@@ -201,18 +217,21 @@ def update_graph_calendarview(pid, dates_id, task_id,activity_id):
     Input('dates_id', 'value'),
     Input('task_id','value'),
     Input('activity_id','value'),
-    [Input("width", "value")],
-    [Input("heigth", "value")],
-    [Input("prominance", "value")],
+    # [Input("width", "value")],
+    # [Input("heigth", "value")],
+    # [Input("prominance", "value")],
+    # [Input("max_prominance", "value")],
     [Input("filepath", "value"),
       Input('column_id', 'value')
     ]
     )
-def update_graph2(pid, dates_id, task_id,activity_id,width,heigth,prominance,filepath,column_id):
+def update_graph2(pid, dates_id, task_id,activity_id,filepath,column_id):
     print("update_graph2(): column_id - ",column_id )
+    # print("update_graph2(): max_prominance",max_prominance)
     # Query for specfic patients.
-    print("update_graph2(): Width parameter entered by user: ",width,heigth,prominance)
+    # print("update_graph2(): Width parameter entered by user: ",width,heigth,prominance)
     #print("update_graph2(): filepath entered by user: ",filepath)
+    # TO get the correct file paths from either text of selected dropdown.
     system_file_path = ""
     if filepath != None and dates_id ==None:
         activity_id = 1
@@ -227,42 +246,212 @@ def update_graph2(pid, dates_id, task_id,activity_id,width,heigth,prominance,fil
 
     # print("file_path: ",file_path)
     df_lg = pd.read_csv(system_file_path)
-    # Query by Activity.
-    df_lg_activity = df_lg#df_lg[df_lg["activity"]==activity_id] #df_lg#df_lg[df_lg["activity"]==activity_id]
-    exercise_name = activity_codes("lg",activity_id)
-    df_dates_pid_p = df_dates_pid[df_dates_pid["ParticipantList"]==pid]
-    normalized_arr = df_lg_activity[column_id][25:500]#preprocessing.normalize([df_lg_activity["index"][25:500]])
-    indices,properties_peaks = find_peaks(normalized_arr.ravel(), prominence=(prominance, 4) ,width=(2,width),distance=heigth)
-    print("properties_peaks: ",properties_peaks) 
+    # Sbuset the data  by Activity.
+    df_lg_activity = df_lg[df_lg["activity"]==activity_id] #df_lg#df_lg[df_lg["activity"]==activity_id]
+    start_idx = 100
+    end_idx = start_idx+160 
+    df_lg_activity_subset = df_lg_activity[start_idx:end_idx]#df_lg_activity[:500] # windowed data
+    normalized_arr = preprocessing.normalize([df_lg_activity_subset[column_id]]) #df_lg_activity[column_id]#
+    indices,properties_peaks = find_peaks(normalized_arr.ravel(), height=np.quantile(normalized_arr, 0.50))
+    peaks =[normalized_arr.ravel()[j] for j in indices]
+    results_half = peak_widths(normalized_arr.ravel(), indices, rel_height=0.5)
+    # print("update_graph2(): PEAK WIDTHS - results_half: ",results_half[0],type(results_half[0]),len(results_half[0]))
+    peak_prominence = peak_prominences(normalized_arr.ravel(), indices)
+    # print("update_graph2(): PEAK PROMINANCES - results_half: ",peak_prominence[0],type(peak_prominence[0]),len(peak_prominence[0]))
     # valley_idx, valley_properties_idx = find_peaks(idx_norm*-1, width=(2,20),distance=5)     #  prominence=(0.01, 4)  
-    valley_idx, properties_idx = find_peaks(normalized_arr.ravel()*-1,prominence=(prominance, 4) ,width=(2,width),distance=heigth)#     #  prominence=(0.01, 4)  
+    valley_idx, properties_idx = find_peaks(normalized_arr.ravel()*-1,height=np.quantile(normalized_arr, 0.50))#     #  prominence=(0.01, 4) # height=np.quantile(normalized_arr, 0.50) 
+    valley_widths = peak_widths(normalized_arr.ravel()*-1, valley_idx, rel_height=0.5)
+
     # print("valley_idx, properties_idx: ",valley_idx, properties_idx)
     #idx_thubm_norm_arr = preprocessing.normalize([df_lg_activity["index"][30:500]-df_lg_activity["thumb"][30:500]])
     quantiles_normalized_arr = np.quantile(normalized_arr, 0.50) # Threshold - get the 50% quantile for the index finger data.
-    rise_time_each_peak = rise_time(indices,valley_idx,df_lg_activity)
-    
-    # print("normalized_arr: ",normalized_arr.ravel(), type(normalized_arr))
-    # idx_thubm_norm_arr_quatiles = idx_thubm_norm_arr.quantile(q=[0.25, 0.5, 0.75], axis=0, numeric_only=True)
-    #quantiles_idx_thubm_norm_arr= np.quantile(idx_thubm_norm_arr, 0.50)
-    # print("quantiles_idx_thubm_norm_arr: ",quantiles_idx_thubm_norm_arr)
-    # Get the indicies of the peaks for plotting. Index only 
-    # This only works fro P1 indices = find_peaks(normalized_arr.ravel(), height=quantiles_normalized_arr)[0]
-    # # for P3 - width=4# prom_val= (0.01, None), width_val = (2,20) ,Dist_val=5
-    # indices_idx_thumb = find_peaks(idx_thubm_norm_arr.ravel(), height=quantiles_idx_thubm_norm_arr)[0]
-  
-    # dist = np.linalg.norm(df_lg_activity["index"][:590]-df_lg_activity["thumb"][:590])
-    # dist = np.sqrt(np.sum([(a-b)*(a-b) for a, b in zip(df_lg_activity["index"][:590], df_lg_activity["thumb"][:590])]))    
-    #index_minus_thumb = df_lg_activity["index"][30:500]-df_lg_activity["thumb"][30:500]
-    # index_minus_thumb_threshold = index_minus_thumb.diff().ravel().mean() + index_minus_thumb.diff().ravel().std()
-    # indices_index_minus_thumb = find_peaks(index_minus_thumb.diff().ravel(), height=index_minus_thumb_threshold)[0]
-    
 
+    # print("update_graph2() len(split_index): ",len(split_index))
+    frequency,amplitude,sample_freq = my_fft(normalized_arr)
+    #print("len(frequency),len(amplitude):",len(frequency),len(amplitude))
+    #print("f,P1: ",frequency,amplitude)
+    #print("update_graph2():/ sig_fft_out: ",sig_fft_out)
+    high_freq_fft = sample_freq.copy()
+#     bounds = 2
+#     print("update_graph2(): AMPLITUDE Lower bound frequency, amplitude,max amp index ",frequency[np.array(amplitude).argmax()-bounds],amplitude[np.array(amplitude).argmax()-bounds],np.array(amplitude).argmax()-bounds)
+#     print("update_graph2(): AMPLITUDE Uppper bound  frequency, amplitude,max amp index",frequency[np.array(amplitude).argmax()+bounds], amplitude[np.array(amplitude).argmax()+bounds],np.array(amplitude).argmax()+bounds)
+#     #print("update_graph2():/ np.abs(sig_fft_out): ",max(sig_fft_out[0].real),np.abs(sig_fft_out[0]))
+#     #print("update_graph2():/ BEFORE high_freq_fft: ",np.array(amplitude).argmax(),frequency[np.array(amplitude).argmax()],high_freq_fft)
+#     high_freq_fft[:np.array(amplitude).argmax()-bounds] = 0
+#     high_freq_fft[np.array(amplitude).argmax()+bounds:] = 0
+#     #print("update_graph2():/ AFTER high_freq_fft: ",high_freq_fft)
+#     #print("update_graph2():/  high_freq_fft",high_freq_fft)
+#     filtered_sig = scipy.fftpack.ifft(high_freq_fft)
+#     #print("filtered_sig===== ",filtered_sig.real)
+#     filt_f,filt_P1= my_fft_split(filtered_sig)
+#     filt_indices,filt_properties_peaks = find_peaks(filtered_sig.real, height=np.quantile(filtered_sig.real, 0.50))# prominence=(prominance, max_prominance) ,width=width,distance= heigth
+#     filt_peaks =[filtered_sig.real[j] for j in filt_indices]
+#    # print("filt_peaks,filt_indices: ",filt_peaks,filt_indices)
+#     # sos = signal.butter(1, 2, 'hp', fs=64, output='sos')
+#     # filtered_high_pass = signal.sosfilt(sos, normalized_arr)
+#     filtered_highpass = butter_highpass_filter(normalized_arr,max(amplitude)+1, 64, order=2)
+#     #print("filtered_highpass: ",filtered_highpass)
+    # filtered_frequency,filtered_amplitude,filtered_sample_freq = my_fft(filtered_highpass)
+    #print("normalized_arr: ",np.diff(normalized_arr))
     # Vertical spacing cannot be greater than (1 / (rows - 1)) = 0.142857.
-    fig2 = make_subplots(rows=5, cols=1, vertical_spacing = 0.13,subplot_titles=(str(column_id)+": Number of Peaks- " +str(len(indices)) + "<br>" + "Width: " + str(width) + " Distance: "+ str(heigth) + " Prominance: "+ str(prominance),"Rise Times in (seconds)"))
-    fig2.add_trace(go.Scatter(y = normalized_arr.ravel(),marker_color='teal'), 1, 1)
-    fig2.add_trace(go.Scatter(
-    x=valley_idx,
-    y=[normalized_arr.ravel()[j] for j in valley_idx],
+    fig2 = make_subplots(rows=1, cols=1, vertical_spacing = 0.13,subplot_titles=(
+        #str(column_id)+": Number of Peaks- " +str(len(indices)) + "<br>" + "Width: " + str(width) + " Distance: "+ str(heigth) + " Prominance: "+ str(prominance),"Filtered Signal"," Peak Widthds <br> " + "Mean: "+str(results_half[0].mean()),"Peak Prominances <br> Mean: " +str(peak_prominence[0].mean()),"Valley Widths Mean: " + str(valley_widths[0].mean()),"Raw FFT","Filtered FFT "
+        )
+        )
+        #signal.detrend(normalized_arr.ravel())
+    fig2.add_trace(go.Scatter(y = signal.detrend(normalized_arr.ravel()) ,marker_color='teal'), 1, 1)
+    # fig2.add_trace(go.Scatter(
+    # x=valley_idx,
+    # y=[normalized_arr.ravel()[j] for j in valley_idx],
+    # mode='markers',
+    # marker=dict(
+    #     size=5,
+    #     color='red',
+    #     symbol='circle'
+    # ),
+    #     name='Detectd valleys'
+    # ),1,1)
+    # # indices
+    # fig2.add_trace(go.Scatter(
+    # x=indices,
+    # y=peaks,
+    # mode='markers',
+    # marker=dict(
+    #     size=5,
+    #     color='blue',
+    #     symbol='circle'
+    # ),
+    #     name='Detectd Peaks'
+    # ),1,1)
+    # fig2.add_trace(go.Scatter(y = filtered_sig.real,marker_color='teal'), 2, 1)
+    # fig2.add_trace(go.Scatter(
+    # x=filt_indices,
+    # y=filt_peaks,
+    # mode='markers',
+    # marker=dict(
+    #     size=5,
+    #     color='blue',
+    #     symbol='circle'
+    # ),
+    #     name='Detectd Peaks'
+    # ),2,1)
+    # fig2.add_trace(go.Scatter(y =normalized_arr.ravel(),marker_color='teal',name=""), 3, 1)
+    # fig2.add_trace(go.Scatter(
+    #     x=filt_indices,
+    #     y=[normalized_arr.ravel()[j] for j in filt_indices],
+    #     mode='markers',
+    #     marker=dict(
+    #         size=5,
+    #         color='blue',
+    #         symbol='circle'
+    #     ),
+    #         name='Detectd Peaks'
+    #     ),3,1)
+    # fig2.add_trace(go.Bar(x=np.arange(0,len(results_half[0])), y=results_half[0],text=results_half[0],
+    #         textposition='auto',marker_color='blue', name='Detectd Peaks (Peak Width) , Mean: ' + str(results_half[0].mean())), 2, 1)
+    #fig2.add_trace(go.Bar(x=np.arange(0,len(peak_prominence[0])), y=peak_prominence[0],text=peak_prominence[0],
+    #        textposition='auto',marker_color='blue',name='Detectd Peaks'), 5, 1)
+    # fig2.add_trace(go.Bar(x=np.arange(0,len(valley_widths[0])), y=valley_widths[0],text=valley_widths[0],
+    #         textposition='auto',marker_color='red',name='Detectd Valleys'), 6, 1)
+    # fig2.add_trace(go.Scatter(x = filtered_frequency,y = filtered_amplitude,marker_color='teal'), 4, 1)
+    # fig2.add_trace(go.Scatter(x = filt_f,y = filt_P1,marker_color='teal'), 5, 1)
+    # fig2.update_yaxes(title_text="Voltage", title_font_family="IBM Plex San", row=1, col=1)
+    # fig2.update_xaxes(title_text="Number of Samples",row=1, col=1)
+    # fig2.update_yaxes(title_text="Peak Width", title_font_family="IBM Plex San", row=3, col=1)
+    # fig2.update_xaxes(title_text="Number of Peaks",row=2, col=1)
+    # fig2.update_yaxes(title_text="Peak Prominance", title_font_family="IBM Plex San", row=4, col=1)
+    # fig2.update_xaxes(title_text="Number of peaks",row=3, col=1)
+    
+    # fig2.update_yaxes(title_text="Number of Peaks", title_font_family="IBM Plex San", row=5, col=1)
+    # fig2.update_xaxes(title_text="Frequency in Hz",row=4, col=1)
+    large_rockwell_template = dict(
+    layout=go.Layout(title_font=dict(family="Rockwell")))
+    fig2.update_layout(
+        font_family="IBM Plex Sans",
+        title= "" ,
+        template=large_rockwell_template,height=500, width=1000) 
+    return fig2
+
+
+# Displays graphs.
+@callback(
+    Output('indicator-graphic-iotex3', 'figure'),
+    Input('participant_id', 'value'),
+    Input('dates_id', 'value'),
+    Input('task_id','value'),
+    Input('activity_id','value'),
+    [Input("width", "value")],
+    [Input("heigth", "value")],
+    [Input("prominance", "value")],
+    [Input("max_prominance", "value")],
+    [Input("filepath", "value"),
+      Input('column_id', 'value')
+    ]
+    )
+## Accelerometer Plots.
+def update_graph3(pid, dates_id, task_id,activity_id,width,heigth,prominance,max_prominance,filepath,column_id):
+    print("update_graph3(): column_id - ",column_id )
+    print("update_graph3(): max_prominance",max_prominance)
+    # Query for specfic patients.
+    print("update_graph3(): Width parameter entered by user: ",width,heigth,prominance)
+    #print("update_graph2(): filepath entered by user: ",filepath)
+    # TO get the correct file paths from either text of selected dropdown.
+    system_file_path = ""
+    if filepath != None and dates_id ==None:
+        activity_id = 1
+        print("update_graph3(): filepath entered by user: ",filepath)
+
+        system_file_path = filepath
+    else:
+       
+        system_file_path = file_path_root + str(pid) + "/" + str(dates_id) + "/"+ str(task_id)
+
+    print("update_graph3(): system_file_path accepted by program: ",system_file_path)
+
+    # print("file_path: ",file_path)
+    df_lg = pd.read_csv(system_file_path)
+    # Sbuset the data  by Activity.
+    df_lg_activity = df_lg[df_lg["activity"]==activity_id] #df_lg#df_lg[df_lg["activity"]==activity_id]
+    start_idx = 100
+    end_idx = start_idx+160 
+    df_lg_activity_subset = df_lg_activity[start_idx:end_idx]#df_lg_activity[:500] # windowed data
+   # print("df_lg_activity_subset.head() =  ",df_lg_activity_subset.head(),df_lg_activity_subset.shape)
+    # exercise_name = activity_codes("lg",activity_id)
+    # df_dates_pid_p = df_dates_pid[df_dates_pid["ParticipantList"]==pid]
+   
+    normalized_arr = preprocessing.normalize([df_lg_activity_subset[column_id]]) #df_lg_activity[column_id]#
+    #print("update_graph3() : normalized_arr: ",normalized_arr,len(normalized_arr))
+    split_index = np.array_split(normalized_arr[0], 3)
+    #print("update_graph3() len(split_index): ",split_index,len(split_index),len(split_index[0]),len(split_index[1]),len(split_index[2]),type(split_index[0]))
+    print()
+    print("=====================split_index[0]=====================")
+    f1,P1 = my_fft_split(split_index[0])
+    indices1,properties_peaks1 = find_peaks(split_index[0], height=np.quantile(normalized_arr, 0.50) ,prominence=(prominance, max_prominance) ,width=width,distance= heigth)
+    peaks1 = [split_index[0][j] for j in indices1]
+
+    valley_idx1, properties_idx = find_peaks(split_index[0]*-1,prominence=(prominance, 4) ,width=(2,width),distance=heigth)#     #  prominence=(0.01, 4) # height=np.quantile(normalized_arr, 0.50) 
+    valley1 = [split_index[0][j] for j in valley_idx1]
+
+    print("=====================split_index[1]=====================")
+    f2,P2 = my_fft_split(split_index[1])
+    indices2,properties_peaks2 = find_peaks(split_index[1], height=np.quantile(normalized_arr, 0.50) ,prominence=(prominance, max_prominance) ,width=width,distance= heigth)
+    peaks2 = [split_index[1][j] for j in indices2]
+    valley_idx2, properties_idx = find_peaks(split_index[1]*-1,prominence=(prominance, 4) ,width=(2,width),distance=heigth)#     #  prominence=(0.01, 4) # height=np.quantile(normalized_arr, 0.50) 
+    valley2 = [split_index[1][j] for j in valley_idx2]
+
+    print("=====================split_index[2]=====================")
+    f3,P3 = my_fft_split(split_index[2])
+    indices3,properties_peaks3 = find_peaks(split_index[2], height=np.quantile(normalized_arr, 0.50) ,prominence=(prominance, max_prominance) ,width=width,distance= heigth)
+    peaks3 = [split_index[2][j] for j in indices3]
+
+    valley_idx3, properties_idx = find_peaks(split_index[2]*-1,prominence=(prominance, 4) ,width=(2,width),distance=heigth)#     #  prominence=(0.01, 4) # height=np.quantile(normalized_arr, 0.50) 
+    valley3 = [split_index[2][j] for j in valley_idx3]
+
+    fig3 = make_subplots(rows=3, cols=3, vertical_spacing = 0.13, # Vertical spacing cannot be greater than (1 / (rows - 1)) = 0.142857.
+    subplot_titles = ("Index Raw 1","Index Raw 2","Index Raw 3","FFT 1","FFT 2","FFT 3")) 
+
+    fig3.add_trace(go.Scatter(y = split_index[0],marker_color='teal'), 1, 1)
+    fig3.add_trace(go.Scatter(x=valley_idx1, y=valley1,
     mode='markers',
     marker=dict(
         size=5,
@@ -272,9 +461,9 @@ def update_graph2(pid, dates_id, task_id,activity_id,width,heigth,prominance,fil
         name='Detectd valleys'
     ),1,1)
     # indices
-    fig2.add_trace(go.Scatter(
-    x=indices,
-    y=[normalized_arr.ravel()[j] for j in indices],
+    fig3.add_trace(go.Scatter(
+    x=indices1,
+    y=peaks1,
     mode='markers',
     marker=dict(
         size=5,
@@ -283,64 +472,58 @@ def update_graph2(pid, dates_id, task_id,activity_id,width,heigth,prominance,fil
     ),
         name='Detectd Peaks'
     ),1,1)
-    fig2.add_trace(go.Bar(x=np.arange(start=0, stop=len(rise_time_each_peak)+1, step=1),
-                y=rise_time_each_peak,
-                name='Rest of world',
-                marker_color='rgb(55, 83, 109)'
-                ), 2, 1)
-
-    # normalized_arr = preprocessing.normalize([df_lg_activity["index"][30:500]])
-    # #prom_val= (0.01, None), width_val = (2,20) ,Dist_val=5,detect_theshold=0
-    # valley_idx, properties_idx 
-    # fig2.add_trace(go.Scatter(y = df_lg_activity["middle"][30:500],marker_color='teal'), 2, 1)
-    # fig2.add_trace(go.Scatter(y = df_lg_activity["thumb"][30:500],marker_color='teal'), 3, 1)     
-    # fig2.add_trace(go.Scatter(y = preprocessing.normalize([df_lg_activity["index"][30:500]-df_lg_activity["thumb"][30:500]]).ravel(),marker_color='teal'), 4, 1)
-    # fig2.add_trace(go.Scatter(y = index_minus_thumb.diff(),marker_color='teal'), 5, 1)     
-    fig2.update_yaxes(title_text="Voltage", title_font_family="IBM Plex San", row=1, col=1)
-
-    large_rockwell_template = dict(
-    layout=go.Layout(title_font=dict(family="Rockwell")))
-    fig2.update_layout(
-        font_family="IBM Plex Sans",
-        title= "" ,
-        template=large_rockwell_template,height=900, width=1000) 
-    return fig2
-
-# Displays graphs.
-@callback(
-    Output('indicator-graphic-iotex3', 'figure'),
-    Input('participant_id', 'value'),
-    Input('dates_id', 'value'),
-    Input('task_id','value'),
-    Input('activity_id','value'),
-    )
-def update_graph3(pid, dates_id, task_id,activity_id):
-    file_path = file_path_root + str(pid) + "/" + str(dates_id) + "/"+ str(task_id)
-    df_lg = pd.read_csv(file_path)
-    # Query by Activity.
-    df_lg_activity = df_lg[df_lg["activity"]==activity_id]
-    exercise_name = activity_codes("lg",activity_id)
-    #print("update_graph/exercise_name",exercise_name)
-    #print("update_graph/ file_path = \n",file_path,)
-    df_dates_pid_p = df_dates_pid[df_dates_pid["ParticipantList"]==pid]
-
-    fig3 = make_subplots(rows=3, cols=1, vertical_spacing = 0.13, # Vertical spacing cannot be greater than (1 / (rows - 1)) = 0.142857.
-    subplot_titles = ("Accelerometer x","Accelerometer y","Accelerometer z")) # subplot_titles=("Participant Adherence " ," <b> Left Glove Activity Name: </b>" + str(exercise_name) + "<br> Index Finger","Middle","Thumb","Accelerometer x","Accelerometer y","Accelerometer z","Influx DB Timestamp"))
-
-    fig3.add_trace(go.Scatter(y = df_lg_activity["ax"],marker_color='teal'), 1, 1)
-    fig3.add_trace(go.Scatter(y = df_lg_activity["ay"],marker_color='teal'), 2, 1)
-    fig3.add_trace(go.Scatter(y = df_lg_activity["az"],marker_color='teal'), 3, 1)
+    fig3.add_trace(go.Scatter(y = split_index[1],marker_color='teal'), 1, 2)
+    fig3.add_trace(go.Scatter(x=valley_idx2, y=valley2,
+    mode='markers',
+    marker=dict(
+        size=5,
+        color='red',
+        symbol='circle'
+    ),
+        name='Detectd valleys'
+    ),1,2)
+    # indices
+    fig3.add_trace(go.Scatter(
+    x=indices2,
+    y=peaks2,
+    mode='markers',
+    marker=dict(
+        size=5,
+        color='blue',
+        symbol='circle'
+    ),
+        name='Detectd Peaks'
+    ),1,2)
 
 
-    large_rockwell_template = dict(
-    layout=go.Layout(title_font=dict(family="Rockwell")))
-    # Update the axises
-    fig3.update_xaxes(title_text="Number of Samples <br>", title_font_family="IBM Plex San",row=3, col=1)
-    fig3.update_xaxes(title_text="Frequency in Hz <br>", title_font_family="IBM Plex San",row=4, col=1)
-    fig3.update_layout(
-        font_family="IBM Plex Sans",
-        title= "" ,
-        template=large_rockwell_template,height=500, width=1000) 
+    fig3.add_trace(go.Scatter(y = split_index[2],marker_color='teal'), 1, 3)
+  
+    fig3.add_trace(go.Scatter(x=valley_idx3, y=valley3,
+    mode='markers',
+    marker=dict(
+        size=5,
+        color='red',
+        symbol='circle'
+    ),
+        name='Detectd valleys'
+    ),1,3)
+    # indices
+    fig3.add_trace(go.Scatter(
+    x=indices3,
+    y=peaks3,
+    mode='markers',
+    marker=dict(
+        size=5,
+        color='blue',
+        symbol='circle'
+    ),
+        name='Detectd Peaks'
+    ),1,3)
+
+    fig3.add_trace(go.Scatter(x = f1,y=P1,marker_color='teal'), 2, 1)
+    fig3.add_trace(go.Scatter(x = f2,y=P2,marker_color='teal'), 2, 2)
+    fig3.add_trace(go.Scatter(x = f3,y=P3,marker_color='teal'), 2, 3)
+
     return fig3
 
 @callback(
@@ -352,6 +535,57 @@ def update_graph3(pid, dates_id, task_id,activity_id):
 def cb_render(width,heigth,prominance):
     return u'Peak Width: {}  Peak Height: {} Peak Prominance: {}'.format(width,heigth,prominance)
 
+
+def butter_highpass(cutoff, fs, order=2):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = signal.butter(order, normal_cutoff, btype = "high", analog = False)
+    return b, a
+
+def butter_highpass_filter(data, cutoff, fs, order=2):
+    b, a = butter_highpass(cutoff, fs, order=order)
+    y = signal.filtfilt(b, a, data)
+    return y
+
+   
+# Takes in a numpy array and calculates fft using scipi .
+# Returns: frequency component - f and P1: - the apmplitude. 
+def my_fft(fft_data):
+    Fs = 64 # Sampling Rate 
+    T = 1/Fs
+    L =len(fft_data) # Length of the dataset.
+    #print("my_fft(): ",L)
+    t = np.arange(start=0, stop=L-1, step=1) *T # Timestamp bins.
+    f = np.arange(start=0, stop=L-1, step=1)/L * Fs # 
+    #print("my_fft(): ",fft_data, type(fft_data))
+    sig_fft_out = scipy.fftpack.fft(fft_data)
+    # The corresponding frequencies
+   # print("sig_fft_out: ",len(sig_fft_out))
+
+    P2 = abs(sig_fft_out/L)
+   # print("my_fft(fft_data): P2 - abs(sig_fft_out/L) ", P2,len(P2))
+   # print("my_fft(fft_data): int(L/2+1): ",int(L/2+1))
+    P1 = P2[1:int(L)]
+    #print("my_fft(): P1: ",len(P1),P1)
+    P1[2:len(P1)-1] = 2*P1[2:len(P1)-1]
+    return f,P1,sig_fft_out
+
+def my_fft_split(fft_data):
+    Fs = 64 # Sampling Rate 
+    T = 1/Fs
+    L =len(fft_data) # Length of the dataset.
+    #print("my_fft(): ",L)
+    t = np.arange(start=0, stop=L-1, step=1) *T # Timestamp bins.
+    f = np.arange(start=0, stop=L/2, step=1)/L * Fs # 
+    #print("my_fft_split(): ",type(fft_data))
+    Y = scipy.fftpack.fft(fft_data)
+    P2 = abs(Y/L)
+    #print("my_fft_split(): P2: ",P2,P2.size)
+    P1 = P2[1:int(L/2+1)]
+    #print("my_fft_split(): P1: ",P1)
+    P1[2:len(P1)-1] = 2*P1[2:len(P1)-1]
+    return f,P1
+################################ -------------------- RISE TIME ----------------- ################################################################################################
 # Params - Peak indexes and valley indexes returned by  peaks_and_valleys().
 def rise_time(peaks_idxs,valley_idxs,df):
     ##### Params needed (1) valley indexes, (2) peak indexes
@@ -364,6 +598,7 @@ def rise_time(peaks_idxs,valley_idxs,df):
             #print("peak to valley peaks_idxs[idx]  < valley_idxs[v_idx]:", peaks_idxs[idx]  , valley_idxs[v_idx])
             #print("valley to peak rise time :", valley_idxs[v_idx], peaks_idxs[idx], peaks_idxs[len(peaks_idxs)-1])  
             if valley_idxs[v_idx] < peaks_idxs[idx]: # RISE TIME
+                print("rise_time(): idx,valley_idxs: ",idx,v_idx)
                 rise_time = df["time"][peaks_idxs[idx]]/1000000000 -  df["time"][valley_idxs[v_idx]]/1000000000
                 rise_time_arr.append(rise_time)
                 found_valley_to_peak = 1

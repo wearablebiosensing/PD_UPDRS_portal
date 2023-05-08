@@ -17,9 +17,9 @@ from raw_data_routes import df_lg_paths,df_dates_pid,df_rg_paths
 # Read data 
 app_iotex_layout = html.Div([
     html.Div([
-        html.Header(
-            "IoTex Longitudinal Parkinsons Disease Dataset",style={ 'font-family': 'IBM Plex Sans','color':'white','font-size': '50pt'}
-        ),
+        # html.Header(
+        #     "IoTex Longitudinal Parkinsons Disease Dataset",style={ 'font-family': 'IBM Plex Sans','color':'white','font-size': '50pt'}
+        # ),
         html.Div([
             html.Br(),
             dbc.Row(style = {"align":"center"}, children=[
@@ -35,7 +35,7 @@ app_iotex_layout = html.Div([
                         dcc.Dropdown(
                                 id='task_id',
                                 options=  [],
-                                placeholder="Select Glove",
+                                placeholder="Select File",
                             ),  
                             html.Br()])
                     ]),
@@ -72,8 +72,8 @@ app_iotex_layout = html.Div([
                     type="text",
                     placeholder="Please Enter a Filepath",
                 ),
-                    html.Br()]
-                ),
+                    html.Br()
+                    ]),
                  dbc.Col([
                     dcc.Dropdown(
                             id='column_id',
@@ -84,39 +84,49 @@ app_iotex_layout = html.Div([
                 )
                 
             ]),
-            # Row 3 
-
-            dbc.Row(style = {"align":"center"}, children=[
-                #col1
-                dbc.Col([
-                dcc.Input(
-                    id="width",
-                    type="number",
-                    placeholder="Peak Width",
-                ),
-                    html.Br()]
-                ),
-                #col2
-                dbc.Col([
-                dcc.Input(
-                    id="heigth",
-                    type="number",
-                    placeholder="Peak Height",
-                ),
+     
+            # # Row 3 
+            # dbc.Row(style = {"align":"center"}, children=[
+            #     #col1
+            #     dbc.Col([
+            #     dcc.Input(
+            #         id="width",
+            #         type="number",
+            #         placeholder="Peak Width",
+            #     ),
+            #         html.Br()]
+            #     ),
+            #     #col2
+            #     dbc.Col([
+            #     dcc.Input(
+            #         id="heigth",
+            #         type="number",
+            #         placeholder="Peak Distance",
+            #     ),
                
-                html.Br(),
-                ]),
-                 #col3
-                dbc.Col([
-                dcc.Input(
-                    id="prominance",
-                    type="number",
-                    placeholder="Peak Prominance",
-                ),
+            #     html.Br(),
+            #     ]),
+            #      #col3
+            #     dbc.Col([
+            #     dcc.Input(
+            #         id="prominance",
+            #         type="number",
+            #         placeholder="Min Peak Prominance",
+            #     ),
               
-                html.Br(),
-                ])
-            ])
+            #     html.Br(),
+            #     ]),
+            #       #col3
+            #     dbc.Col([
+            #     dcc.Input(
+            #         id="max_prominance",
+            #         type="number",
+            #         placeholder="Max Peak Prominance",
+            #     ),
+              
+            #     html.Br(),
+            #     ])
+            # ]) 
         ],
         style={'width': '48%', 'display': 'inline-block'}),
     ]),

@@ -45,4 +45,4 @@ def update_output(value):
     return f'Month: {value}'
     
 if __name__ == "__main__":
-    app.run_server(port=8888)
+    app.run_server(port=4321)
