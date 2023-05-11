@@ -251,9 +251,13 @@ def update_graph2(pid, dates_id, task_id,activity_id,filepath,column_id):
     start_idx = 100
     end_idx = start_idx+160 
     df_lg_activity_subset = df_lg_activity[start_idx:end_idx]#df_lg_activity[:500] # windowed data
-    normalized_arr = preprocessing.normalize([df_lg_activity_subset[column_id]]) #df_lg_activity[column_id]#
+    print("df_lg_activity_subset.size[0]: ",len(df_lg_activity_subset))
+    time_steps = np.linspace(0, 64, len(df_lg_activity_subset))
+    print("time_steps: ----",len(time_steps),time_steps)
+    normalized_arr = signal.detrend(preprocessing.normalize([df_lg_activity_subset[column_id]])) #df_lg_activity[column_id]#
     indices,properties_peaks = find_peaks(normalized_arr.ravel(), height=np.quantile(normalized_arr, 0.50))
     peaks =[normalized_arr.ravel()[j] for j in indices]
+    time_peaks = [time_steps[j] for j in indices]
     results_half = peak_widths(normalized_arr.ravel(), indices, rel_height=0.5)
     # print("update_graph2(): PEAK WIDTHS - results_half: ",results_half[0],type(results_half[0]),len(results_half[0]))
     peak_prominence = peak_prominences(normalized_arr.ravel(), indices)
@@ -272,34 +276,24 @@ def update_graph2(pid, dates_id, task_id,activity_id,filepath,column_id):
     #print("f,P1: ",frequency,amplitude)
     #print("update_graph2():/ sig_fft_out: ",sig_fft_out)
     high_freq_fft = sample_freq.copy()
-#     bounds = 2
-#     print("update_graph2(): AMPLITUDE Lower bound frequency, amplitude,max amp index ",frequency[np.array(amplitude).argmax()-bounds],amplitude[np.array(amplitude).argmax()-bounds],np.array(amplitude).argmax()-bounds)
-#     print("update_graph2(): AMPLITUDE Uppper bound  frequency, amplitude,max amp index",frequency[np.array(amplitude).argmax()+bounds], amplitude[np.array(amplitude).argmax()+bounds],np.array(amplitude).argmax()+bounds)
-#     #print("update_graph2():/ np.abs(sig_fft_out): ",max(sig_fft_out[0].real),np.abs(sig_fft_out[0]))
-#     #print("update_graph2():/ BEFORE high_freq_fft: ",np.array(amplitude).argmax(),frequency[np.array(amplitude).argmax()],high_freq_fft)
-#     high_freq_fft[:np.array(amplitude).argmax()-bounds] = 0
-#     high_freq_fft[np.array(amplitude).argmax()+bounds:] = 0
-#     #print("update_graph2():/ AFTER high_freq_fft: ",high_freq_fft)
-#     #print("update_graph2():/  high_freq_fft",high_freq_fft)
-#     filtered_sig = scipy.fftpack.ifft(high_freq_fft)
-#     #print("filtered_sig===== ",filtered_sig.real)
-#     filt_f,filt_P1= my_fft_split(filtered_sig)
-#     filt_indices,filt_properties_peaks = find_peaks(filtered_sig.real, height=np.quantile(filtered_sig.real, 0.50))# prominence=(prominance, max_prominance) ,width=width,distance= heigth
-#     filt_peaks =[filtered_sig.real[j] for j in filt_indices]
-#    # print("filt_peaks,filt_indices: ",filt_peaks,filt_indices)
-#     # sos = signal.butter(1, 2, 'hp', fs=64, output='sos')
-#     # filtered_high_pass = signal.sosfilt(sos, normalized_arr)
-#     filtered_highpass = butter_highpass_filter(normalized_arr,max(amplitude)+1, 64, order=2)
-#     #print("filtered_highpass: ",filtered_highpass)
-    # filtered_frequency,filtered_amplitude,filtered_sample_freq = my_fft(filtered_highpass)
-    #print("normalized_arr: ",np.diff(normalized_arr))
-    # Vertical spacing cannot be greater than (1 / (rows - 1)) = 0.142857.
-    fig2 = make_subplots(rows=1, cols=1, vertical_spacing = 0.13,subplot_titles=(
+
+    fig2 = make_subplots(rows=2, cols=1, vertical_spacing = 0.13,subplot_titles=(
         #str(column_id)+": Number of Peaks- " +str(len(indices)) + "<br>" + "Width: " + str(width) + " Distance: "+ str(heigth) + " Prominance: "+ str(prominance),"Filtered Signal"," Peak Widthds <br> " + "Mean: "+str(results_half[0].mean()),"Peak Prominances <br> Mean: " +str(peak_prominence[0].mean()),"Valley Widths Mean: " + str(valley_widths[0].mean()),"Raw FFT","Filtered FFT "
         )
         )
         #signal.detrend(normalized_arr.ravel())
-    fig2.add_trace(go.Scatter(y = signal.detrend(normalized_arr.ravel()) ,marker_color='teal'), 1, 1)
+    fig2.add_trace(go.Scatter(y = normalized_arr.ravel() ,marker_color='teal'), 1, 1)
+    fig2.add_trace(go.Scatter(
+    x=time_peaks,
+    y=peaks,
+    mode='markers',
+    marker=dict(
+        size=5,
+        color='blue',
+        symbol='circle'
+    ),
+        name='Detectd Peaks'
+    ),1,1),
     # fig2.add_trace(go.Scatter(
     # x=valley_idx,
     # y=[normalized_arr.ravel()[j] for j in valley_idx],
@@ -311,18 +305,8 @@ def update_graph2(pid, dates_id, task_id,activity_id,filepath,column_id):
     # ),
     #     name='Detectd valleys'
     # ),1,1)
-    # # indices
-    # fig2.add_trace(go.Scatter(
-    # x=indices,
-    # y=peaks,
-    # mode='markers',
-    # marker=dict(
-    #     size=5,
-    #     color='blue',
-    #     symbol='circle'
-    # ),
-    #     name='Detectd Peaks'
-    # ),1,1)
+    # indices
+   
     # fig2.add_trace(go.Scatter(y = filtered_sig.real,marker_color='teal'), 2, 1)
     # fig2.add_trace(go.Scatter(
     # x=filt_indices,
@@ -347,8 +331,8 @@ def update_graph2(pid, dates_id, task_id,activity_id,filepath,column_id):
     #     ),
     #         name='Detectd Peaks'
     #     ),3,1)
-    # fig2.add_trace(go.Bar(x=np.arange(0,len(results_half[0])), y=results_half[0],text=results_half[0],
-    #         textposition='auto',marker_color='blue', name='Detectd Peaks (Peak Width) , Mean: ' + str(results_half[0].mean())), 2, 1)
+    fig2.add_trace(go.Bar(x=np.arange(0,len(results_half[0])), y=results_half[0],text=results_half[0],
+            textposition='auto',marker_color='blue', name='Detectd Peaks (Peak Width) , Mean: ' + str(results_half[0].mean())), 2, 1)
     #fig2.add_trace(go.Bar(x=np.arange(0,len(peak_prominence[0])), y=peak_prominence[0],text=peak_prominence[0],
     #        textposition='auto',marker_color='blue',name='Detectd Peaks'), 5, 1)
     # fig2.add_trace(go.Bar(x=np.arange(0,len(valley_widths[0])), y=valley_widths[0],text=valley_widths[0],
